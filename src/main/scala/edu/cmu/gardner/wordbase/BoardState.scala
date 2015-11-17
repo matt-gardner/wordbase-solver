@@ -5,7 +5,8 @@ import scala.collection.mutable
 class BoardState(
     board: Board,
     val active_squares: (Set[(Int, Int)], Set[(Int, Int)]),
-    val bombs_exploded: Seq[Boolean]) {
+    val bombs_exploded: Seq[Boolean],
+    val words_played: Set[String]) {
 
   def afterMove(move: Seq[(Int, Int)], player: Int): BoardState = {
     var current_player_squares = new mutable.HashSet[(Int, Int)]
@@ -55,7 +56,7 @@ class BoardState(
       p2_squares = current_player_squares.toSet
     }
 
-    new BoardState(board, (p1_squares, p2_squares), bombs)
+    new BoardState(board, (p1_squares, p2_squares), bombs, words_played + board.getWordForMove(move))
   }
 }
 
@@ -71,7 +72,7 @@ object BoardState {
       (player1_squares.toSet, player2_squares.toSet)
     }
     val bombs_exploded = Array.fill[Boolean](bombs.size)(false)
-    new BoardState(board, active_squares, bombs_exploded)
+    new BoardState(board, active_squares, bombs_exploded, Set())
   }
 
   def pruneUnconnectedSquares(player: Int, _squares: Set[(Int, Int)]): Set[(Int, Int)] = {

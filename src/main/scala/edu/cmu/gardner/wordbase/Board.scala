@@ -9,6 +9,8 @@ class Board(
     dictionary: Set[String]) {
   val size = (characters.size, characters(0).size)
 
+  val MOVE_MULTIPLIER = Board.MOVE_MULTIPLIER
+  val DEPTH_MULTIPLIER = Board.DEPTH_MULTIPLIER
   var current_state = BoardState.initialState(this, size, bombs)
 
   val prefixes = dictionary.par.flatMap(word => {
@@ -24,7 +26,8 @@ class Board(
 
   def getPlayerMoves(state: BoardState, player: Int, maxMoves: Int): Seq[(Seq[(Int, Int)], String)] = {
     val squares = if (player == 0) state.active_squares._1 else state.active_squares._2
-    val moves = squares.flatMap(getPossibleMoves).toSeq
+    val moves = squares.flatMap(getPossibleMoves).filter(move =>
+        !state.words_played.contains(getWordForMove(move))).toSeq
     moves.sortBy(x => -scoreMove(state, x, player)).take(maxMoves).map(x => (x, getWordForMove(x)))
   }
 
@@ -69,20 +72,24 @@ class Board(
   }
 
   def scoreMove(state: BoardState, move: Seq[(Int, Int)], player: Int) = {
+    var score = 0.0
     val new_state = current_state.afterMove(move, player)
     if (player == 0) {
-      new_state.active_squares._1.size - 2*new_state.active_squares._2.size
+      score += new_state.active_squares._1.size - MOVE_MULTIPLIER * new_state.active_squares._2.size
     } else {
-      new_state.active_squares._2.size - 2*new_state.active_squares._1.size
+      score += new_state.active_squares._2.size - MOVE_MULTIPLIER * new_state.active_squares._1.size
     }
-    /*
-    move.size + 2.5* move.map(_._1).max
-   if (player == 0) {
-      move.map(_._1).max
-   } else {
-      -move.map(_._1).min
-   }
-    */
+    if (player == 0 && move.map(_._1).max == 12) {
+      score += 1000
+    } else if (player == 1 && move.map(_._1).min == 0) {
+      score += 1000
+    }
+    if (player == 0) {
+      score += DEPTH_MULTIPLIER * move.map(_._1).max
+    } else {
+      score += DEPTH_MULTIPLIER * (13 - move.map(_._1).min)
+    }
+    score
   }
 
   def printBoardState(state: BoardState) {
@@ -212,14 +219,17 @@ class Board(
 
 object Board {
 
+  val MOVE_MULTIPLIER = 3
+  val DEPTH_MULTIPLIER = 0
+
   def main(args: Array[String]) {
-    val game = game2()
+    val game = game1()
     val board = game._1
     val state = game._2
     val player = game._3
     val moves = board.getPlayerMoves(state, player, 20)
     board.printBoardState(state)
-    for (move <- moves) {
+    for (move <- moves.reverse) {
       println(move._2)
       board.printMove(state, move._1, player)
     }
@@ -227,470 +237,70 @@ object Board {
 
   def game1() = {
     val _chars = Array(
-      "carflesrid",
-      "luflmsaslo",
-      "tmieniryac",
-      "ngpateopsk",
-      "uitredsoig",
-      "hsigzilegn",
-      "twgunaosut",
-      "ioeltortef",
-      "hroyiutygo",
-      "ampchgehna",
-      "stirestcfn",
-      "iutoathgif",
-      "mlicspoyea"
+      "bhivbpagme",
+      "ltslesinid",
+      "niluselztu",
+      "zgacpiudza",
+      "tirphlrsrh",
+      "sdberaorce",
+      "ledoenpera",
+      "iymesighit",
+      "sacrzselsd",
+      "ureokrpumi",
+      "onyigaoylp",
+      "daonatnsah",
+      "gbscedigre"
       )
     val chars = _chars.map(_.toCharArray)
-    val bombs = Seq()
+    val bombs = Seq((6,0), (6, 9))
     val dictionary_file = "big_dictionary.txt"
     val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
     val board = new Board(chars, bombs, dictionary)
     var state = board.current_state
     val player = 1
-    val p1_squares = new mutable.HashSet[(Int, Int)]
-    p1_squares += Tuple2(1, 9)
-    p1_squares += Tuple2(2, 8)
-    p1_squares += Tuple2(2, 9)
-    p1_squares += Tuple2(3, 8)
-    p1_squares += Tuple2(3, 9)
-    p1_squares += Tuple2(4, 6)
-    p1_squares += Tuple2(4, 7)
-    p1_squares += Tuple2(4, 8)
-    p1_squares += Tuple2(4, 9)
-    p1_squares += Tuple2(5, 5)
-    p1_squares += Tuple2(5, 6)
-    p1_squares += Tuple2(5, 7)
-    p1_squares += Tuple2(5, 8)
-    p1_squares += Tuple2(5, 9)
-    p1_squares += Tuple2(6, 6)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 4)
-    p2_squares += Tuple2(10, 5)
-    p2_squares += Tuple2(10, 6)
-    p2_squares += Tuple2(9, 6)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def game2() = {
-    val _chars = Array(
-      "aoictfoslh",
-      "bplvlrione",
-      "ulygoepwro",
-      "niormusaot",
-      "snayringio",
-      "uelcarelsc",
-      "paskputyla",
-      "tpoesnkasf",
-      "lcrstsawft",
-      "roiuerlpma",
-      "xhfzatutor",
-      "ecrnlenoce",
-      "rtoerifadp"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Seq((1, 0), (7, 7))
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
-    p1_squares += Tuple2(1, 7)
-    p1_squares += Tuple2(2, 7)
-    p1_squares += Tuple2(3, 6)
-    p1_squares += Tuple2(4, 5)
-    p1_squares += Tuple2(4, 6)
-    p1_squares += Tuple2(4, 7)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 4)
-    p2_squares += Tuple2(11, 5)
-    p2_squares += Tuple2(10, 4)
-    p2_squares += Tuple2(10, 5)
-    p2_squares += Tuple2(9, 4)
-    p2_squares += Tuple2(8, 5)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game1() = {
-    val _chars = Array(
-      "lusulcsidu",
-      "naoenaevup",
-      "tcrnvetlro",
-      "ceacitytie",
-      "udsbsrecnv",
-      "asbociszog",
-      "graltnthbr",
-      "outxeareon",
-      "lipslitbws",
-      "svdirnblgp",
-      "teotcainir",
-      "ruyrlwmrct",
-      "drstxeksoy"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Seq((3, 4), (8, 2))
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
-    p1_squares += Tuple2(7, 4)
-    p1_squares += Tuple2(6, 3)
-    p1_squares += Tuple2(6, 2)
-    p1_squares += Tuple2(5, 2)
-    p1_squares += Tuple2(5, 1)
-    p1_squares += Tuple2(4, 0)
-    p1_squares += Tuple2(3, 0)
-    p1_squares += Tuple2(2, 1)
-    p1_squares += Tuple2(1, 0)
-    p1_squares += Tuple2(1, 1)
-    p1_squares += Tuple2(1, 2)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 3)
-    p2_squares += Tuple2(10, 2)
-    p2_squares += Tuple2(10, 1)
-    p2_squares += Tuple2(9, 2)
-    p2_squares += Tuple2(9, 0)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game2() = {
-    val _chars = Array(
-      "spbimarinu",
-      "eulntsbtrs",
-      "bxtageiapt",
-      "ouorpanola",
-      "rtnunstril",
-      "isailceosn",
-      "relqkeltng",
-      "tuaueroiel",
-      "irmitspwhw",
-      "lstprxmlsa",
-      "ucrlealmed",
-      "oatcuoisan",
-      "gnsicpruqe"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Nil
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
+    val words_played = Set[String]("blessing", "congressing", "screenies", "resigner", "presser",
+      "gored", "proser", "nieces", "edemas", "cremorne", "decrying", "congressed", "bosser",
+      "realmless", "changers", "gressing", "hangers", "grapes", "bossier", "lessen", "angles",
+      "arsino", "pressing", "gorsier", "presignal")
     val p1_squares = new mutable.HashSet[(Int, Int)]
     p1_squares += Tuple2(1, 3)
     p1_squares += Tuple2(1, 4)
-    p1_squares += Tuple2(1, 9)
-    p1_squares += Tuple2(2, 5)
-    p1_squares += Tuple2(2, 9)
-    p1_squares += Tuple2(3, 5)
-    p1_squares += Tuple2(3, 8)
-    p1_squares += Tuple2(3, 9)
-    p1_squares += Tuple2(4, 6)
-    p1_squares += Tuple2(4, 8)
-    p1_squares += Tuple2(4, 9)
-    p1_squares += Tuple2(5, 5)
-    p1_squares += Tuple2(5, 6)
-    p1_squares += Tuple2(5, 7)
-    p1_squares += Tuple2(5, 9)
-    p1_squares += Tuple2(6, 5)
-    p1_squares += Tuple2(6, 6)
-    p1_squares += Tuple2(7, 5)
-    p1_squares += Tuple2(7, 6)
-    p1_squares += Tuple2(7, 7)
-    p1_squares += Tuple2(8, 6)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 4)
-    p2_squares += Tuple2(11, 5)
-    p2_squares += Tuple2(11, 6)
-    p2_squares += Tuple2(11, 7)
-    p2_squares += Tuple2(11, 8)
-    p2_squares += Tuple2(11, 9)
-    p2_squares += Tuple2(10, 3)
-    p2_squares += Tuple2(10, 4)
-    p2_squares += Tuple2(10, 5)
-    p2_squares += Tuple2(10, 6)
-    p2_squares += Tuple2(10, 7)
-    p2_squares += Tuple2(10, 8)
-    p2_squares += Tuple2(10, 9)
-    p2_squares += Tuple2(9, 3)
-    p2_squares += Tuple2(9, 4)
-    p2_squares += Tuple2(9, 5)
-    p2_squares += Tuple2(9, 6)
-    p2_squares += Tuple2(9, 7)
-    p2_squares += Tuple2(9, 9)
-    p2_squares += Tuple2(8, 3)
-    p2_squares += Tuple2(8, 4)
-    p2_squares += Tuple2(8, 5)
-    p2_squares += Tuple2(7, 4)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game3() = {
-    val _chars = Array(
-      "plsactedgr",
-      "eomnaikgsa",
-      "iksiprlinm",
-      "asabiahnue",
-      "trelneipet",
-      "lhtgldyksr",
-      "aysbnwesap",
-      "ldasoirnre",
-      "ientvlnlil",
-      "tociergank",
-      "maltshlucu",
-      "eseoapinol",
-      "rtsmrepaep"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Seq((8, 3))
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
     p1_squares += Tuple2(1, 5)
-    p1_squares += Tuple2(1, 7)
-    p1_squares += Tuple2(1, 8)
-    p1_squares += Tuple2(1, 9)
-    p1_squares += Tuple2(2, 6)
-    p1_squares += Tuple2(2, 7)
-    p1_squares += Tuple2(2, 8)
-    p1_squares += Tuple2(2, 9)
-    p1_squares += Tuple2(3, 6)
-    p1_squares += Tuple2(3, 9)
-    p1_squares += Tuple2(4, 6)
-    p1_squares += Tuple2(4, 9)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 7)
-    p2_squares += Tuple2(11, 8)
-    p2_squares += Tuple2(11, 9)
-    p2_squares += Tuple2(10, 8)
-    p2_squares += Tuple2(10, 9)
-    p2_squares += Tuple2(9, 7)
-    p2_squares += Tuple2(9, 8)
-    p2_squares += Tuple2(9, 9)
-    p2_squares += Tuple2(8, 8)
-    p2_squares += Tuple2(8, 9)
-    p2_squares += Tuple2(7, 8)
-    p2_squares += Tuple2(7, 9)
-    p2_squares += Tuple2(6, 8)
-    p2_squares += Tuple2(5, 7)
-    p2_squares += Tuple2(5, 9)
-    p2_squares += Tuple2(4, 8)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game4() = {
-    val _chars = Array(
-      "mhpuosrotw",
-      "ociparimea",
-      "rnsoetaudr",
-      "edertasped",
-      "amsiherhpl",
-      "yupropirou",
-      "ntsenatnci",
-      "eirsutlart",
-      "arlfnhecia",
-      "tsudeocnrd",
-      "neatimeocg",
-      "urueseghia",
-      "gtionusenm"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Nil
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
-    p1_squares += Tuple2(1, 2)
-    p1_squares += Tuple2(1, 3)
-    p1_squares += Tuple2(1, 4)
-    p1_squares += Tuple2(2, 2)
-    p1_squares += Tuple2(2, 3)
-    p1_squares += Tuple2(2, 4)
-    p1_squares += Tuple2(3, 2)
-    p1_squares += Tuple2(3, 3)
-    p1_squares += Tuple2(4, 1)
-    p1_squares += Tuple2(4, 2)
-    p1_squares += Tuple2(4, 3)
-    p1_squares += Tuple2(5, 1)
-    p1_squares += Tuple2(5, 2)
-    p1_squares += Tuple2(5, 3)
-    p1_squares += Tuple2(6, 2)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
-    p2_squares += Tuple2(11, 3)
-    p2_squares += Tuple2(11, 4)
-    p2_squares += Tuple2(10, 2)
-    p2_squares += Tuple2(10, 3)
-    p2_squares += Tuple2(10, 4)
-    p2_squares += Tuple2(9, 3)
-    p2_squares += Tuple2(9, 4)
-    p2_squares += Tuple2(8, 3)
-    p2_squares += Tuple2(8, 4)
-    p2_squares += Tuple2(7, 2)
-    p2_squares += Tuple2(7, 3)
-    p2_squares += Tuple2(7, 4)
-    p2_squares += Tuple2(6, 3)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game5() = {
-    val _chars = Array(
-      "rmihnoctbw",
-      "elunzroiti",
-      "ldhygusmot",
-      "yoraqapblv",
-      "iletrinosi",
-      "emlovasetd",
-      "uaretnhcdn",
-      "rtanhoabut",
-      "psegniteop",
-      "lcsilcurhc",
-      "uebtabtcli",
-      "gueocsibua",
-      "myrledumns"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Seq((0, 10))
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
     p1_squares += Tuple2(1, 6)
+    p1_squares += Tuple2(1, 7)
     p1_squares += Tuple2(2, 4)
-    p1_squares += Tuple2(2, 5)
-    p1_squares += Tuple2(3, 2)
     p1_squares += Tuple2(3, 3)
-    p1_squares += Tuple2(3, 5)
-    p1_squares += Tuple2(4, 1)
     p1_squares += Tuple2(4, 2)
     p1_squares += Tuple2(4, 3)
+    p1_squares += Tuple2(4, 4)
+    p1_squares += Tuple2(4, 5)
     p1_squares += Tuple2(5, 2)
     p1_squares += Tuple2(5, 3)
     p1_squares += Tuple2(5, 4)
+    p1_squares += Tuple2(5, 5)
+    p1_squares += Tuple2(6, 3)
+    p1_squares += Tuple2(6, 4)
+    p1_squares += Tuple2(6, 5)
+    p1_squares += Tuple2(7, 4)
+    p1_squares += Tuple2(7, 5)
+    p1_squares += Tuple2(7, 6)
     val p2_squares = new mutable.HashSet[(Int, Int)]
     p2_squares += Tuple2(11, 2)
     p2_squares += Tuple2(11, 3)
-    p2_squares += Tuple2(11, 4)
-    p2_squares += Tuple2(11, 6)
-    p2_squares += Tuple2(10, 4)
-    p2_squares += Tuple2(10, 7)
-    p2_squares += Tuple2(9, 5)
-    p2_squares += Tuple2(9, 7)
-    p2_squares += Tuple2(8, 5)
-    p2_squares += Tuple2(8, 6)
-    p2_squares += Tuple2(8, 7)
-    p2_squares += Tuple2(7, 6)
-    p2_squares += Tuple2(6, 5)
-    p2_squares += Tuple2(5, 5)
-    p2_squares += Tuple2(5, 6)
-    p2_squares += Tuple2(4, 4)
-    p2_squares += Tuple2(4, 5)
-    state = new BoardState(
-      board,
-      (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
-    board.current_state = state
-    (board, state, player)
-  }
-
-  def old_game6() = {
-    val _chars = Array(
-      "oudeguamrc",
-      "ugcorbinha",
-      "etntlstdeu",
-      "nbesamnckm",
-      "erloniesil",
-      "ibsigkrhta",
-      "cetretkayn",
-      "enidbscbmd",
-      "dieaoghsie",
-      "hcuemnerea",
-      "nusotioeto",
-      "mlbhftsdsl",
-      "ceifederaf"
-      )
-    val chars = _chars.map(_.toCharArray)
-    val bombs = Seq((3, 0), (2, 9))
-    val dictionary_file = "big_dictionary.txt"
-    val dictionary = Resource.fromFile(dictionary_file).lines().map(_.toLowerCase).toSet
-    val board = new Board(chars, bombs, dictionary)
-    var state = board.current_state
-    val player = 0
-    val p1_squares = new mutable.HashSet[(Int, Int)]
-    p1_squares += Tuple2(1, 3)
-    p1_squares += Tuple2(1, 4)
-    p1_squares += Tuple2(2, 3)
-    p1_squares += Tuple2(2, 4)
-    p1_squares += Tuple2(2, 5)
-    p1_squares += Tuple2(3, 3)
-    p1_squares += Tuple2(3, 4)
-    p1_squares += Tuple2(4, 2)
-    p1_squares += Tuple2(5, 3)
-    p1_squares += Tuple2(6, 1)
-    p1_squares += Tuple2(6, 2)
-    p1_squares += Tuple2(7, 0)
-    p1_squares += Tuple2(7, 1)
-    p1_squares += Tuple2(7, 2)
-    p1_squares += Tuple2(8, 0)
-    val p2_squares = new mutable.HashSet[(Int, Int)]
     p2_squares += Tuple2(11, 8)
-    p2_squares += Tuple2(10, 7)
+    p2_squares += Tuple2(10, 4)
+    p2_squares += Tuple2(10, 5)
     p2_squares += Tuple2(10, 8)
-    p2_squares += Tuple2(10, 9)
+    p2_squares += Tuple2(9, 3)
     p2_squares += Tuple2(9, 5)
     p2_squares += Tuple2(9, 6)
     p2_squares += Tuple2(9, 8)
-    p2_squares += Tuple2(9, 9)
-    p2_squares += Tuple2(8, 4)
-    p2_squares += Tuple2(8, 8)
-    p2_squares += Tuple2(8, 9)
-    p2_squares += Tuple2(7, 5)
-    p2_squares += Tuple2(7, 9)
-    p2_squares += Tuple2(6, 3)
-    p2_squares += Tuple2(6, 4)
+    p2_squares += Tuple2(8, 3)
     state = new BoardState(
       board,
       (state.active_squares._1 ++ p1_squares, state.active_squares._2 ++ p2_squares),
-      state.bombs_exploded)
+      state.bombs_exploded,
+      words_played)
     board.current_state = state
     (board, state, player)
   }
